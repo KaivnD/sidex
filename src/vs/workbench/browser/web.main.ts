@@ -150,6 +150,10 @@ export class BrowserMain extends Disposable {
 		// Return API Facade
 		return instantiationService.invokeFunction(accessor => {
 			const commandService = accessor.get(ICommandService);
+
+			// Expose command service for native menu integration
+			(globalThis as any).__sidex_commandService = commandService;
+
 			const lifecycleService = accessor.get(ILifecycleService);
 			const timerService = accessor.get(ITimerService);
 			const openerService = accessor.get(IOpenerService);

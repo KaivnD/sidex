@@ -169,7 +169,6 @@ pub fn run() {
                 .expect("failed to initialize storage database");
             app.manage(Arc::new(db));
 
-            // Set the native macOS menu bar
             let menu = build_menu(app.handle())?;
             app.set_menu(menu)?;
 
@@ -181,6 +180,16 @@ pub fn run() {
                 )?;
             }
             Ok(())
+        })
+        .on_menu_event(|app, event| {
+            let id = event.id().0.as_str();
+            // Forward menu action to the webview
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.eval(&format!(
+                    "window.__sidex_menu_action && window.__sidex_menu_action('{}')",
+                    id
+                ));
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::read_file,
