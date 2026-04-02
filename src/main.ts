@@ -111,7 +111,7 @@ async function boot() {
 			'editor.suggest.showStatusBar': true,
 			'editor.inlineSuggest.enabled': true,
 			'editor.stickyScroll.enabled': false,
-			'editor.minimap.enabled': true,
+			'editor.minimap.enabled': false,
 			'editor.formatOnPaste': false,
 			'editor.renderWhitespace': 'selection',
 			'editor.smoothScrolling': false,

@@ -209,24 +209,11 @@ pub fn run() {
             let menu = build_menu(app.handle())?;
             app.set_menu(menu)?;
 
-            // Enable devtools in all builds for debugging
-            if let Some(window) = app.get_webview_window("main") {
-                // Allow Cmd+Alt+I to open devtools in production too
-                window.open_devtools();
-
-                // Inject memory diagnostic
-                let _ = window.eval(r#"
-                    (function() {
-                        var count = 0;
-                        setInterval(function() {
-                            count++;
-                            var entries = performance.getEntriesByType('resource');
-                            if (count <= 5) {
-                                console.log('[SideX Memory] Resource entries: ' + entries.length);
-                            }
-                        }, 10000);
-                    })();
-                "#);
+            // Enable devtools only in debug builds
+            if cfg!(debug_assertions) {
+                if let Some(window) = app.get_webview_window("main") {
+                    window.open_devtools();
+                }
             }
 
             if cfg!(debug_assertions) {

@@ -691,20 +691,16 @@ class TauriGitSCMProvider extends Disposable implements ISCMProvider {
 		let status: TauriGitStatus | undefined;
 		try {
 			status = await invokeGit<TauriGitStatus>('git_status', { path: rootPath });
-			console.log('[TauriGit] git_status result:', status);
 		} catch (err) {
-			console.error('[TauriGit] git_status failed:', err);
 			this.logService.warn('[TauriGit] git_status failed', err);
 			return;
 		}
 
 		if (!status) {
-			console.log('[TauriGit] No status returned');
 			return;
 		}
 
 		this._branch = status.branch;
-		console.log('[TauriGit] Branch:', this._branch, 'Changes:', status.changes.length);
 
 		if (this._historyProviderInstance) {
 			try {
@@ -897,38 +893,28 @@ class TauriGitContribution extends Disposable implements IWorkbenchContribution 
 	}
 
 	private async _init(): Promise<void> {
-		console.log('[TauriGit] _init started');
 		const folders = this.workspaceContextService.getWorkspace().folders;
-		console.log('[TauriGit] Workspace folders:', folders.length, folders.map(f => f.uri.toString()));
 
-		// Store folders globally for git.init command
 		(window as any).__sidex_workspaceFolders = folders.map(f => f.uri.fsPath);
 
 		if (folders.length === 0) {
-			console.log('[TauriGit] No workspace folders, skipping');
 			return;
 		}
 
 		const rootUri = folders[0].uri;
 		const rootPath = rootUri.fsPath;
-		console.log('[TauriGit] Checking if git repo:', rootPath);
 
 		let isRepo: boolean | undefined;
 		try {
 			isRepo = await invokeGit<boolean>('git_is_repo', { path: rootPath });
-			console.log('[TauriGit] git_is_repo result:', isRepo);
 		} catch (err) {
-			console.error('[TauriGit] git_is_repo failed:', err);
 			this.logService.info('[TauriGit] git_is_repo unavailable — Tauri backend not present', err);
 			return;
 		}
 
 		if (!isRepo) {
-			console.log('[TauriGit] Not a git repo, skipping');
 			return;
 		}
-
-		console.log('[TauriGit] Git repository detected, registering SCM provider');
 
 		const provider = new TauriGitSCMProvider(
 			rootUri,
@@ -982,7 +968,7 @@ class TauriGitContribution extends Disposable implements IWorkbenchContribution 
 
 		await provider.refresh();
 
-		this._pollHandle = setInterval(() => provider.refresh(), 3000);
+		this._pollHandle = setInterval(() => provider.refresh(), 10000);
 		this._register({
 			dispose: () => {
 				if (this._pollHandle !== undefined) {
