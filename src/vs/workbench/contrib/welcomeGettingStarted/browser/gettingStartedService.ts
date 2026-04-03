@@ -438,7 +438,7 @@ export class WalkthroughsService extends Disposable implements IWalkthroughsServ
 
 		const hadLastFoucs = await this.hostService.hadLastFocus();
 		const startupEditor = this.configurationService.getValue<string>('workbench.startupEditor');
-		if (hadLastFoucs && sectionToOpen && this.configurationService.getValue<string>('workbench.welcomePage.walkthroughs.openOnInstall') && startupEditor !== 'agentSessionsWelcomePage') {
+		if (hadLastFoucs && sectionToOpen && this.configurationService.getValue<string>('workbench.welcomePage.walkthroughs.openOnInstall')) {
 			type GettingStartedAutoOpenClassification = {
 				owner: 'lramos15';
 				comment: 'When a walkthrough is opened upon extension installation';

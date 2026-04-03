@@ -230,7 +230,7 @@ function createCopilotSetupStep(id: string, button: string, when: string, includ
 		id,
 		title: CopilotStepTitle,
 		description,
-		when: `${when} && !chatSetupHidden`,
+		when: `${when}`,
 		media: {
 			type: 'svg', altText: 'SideX Copilot multi file edits', path: 'multi-file-edits.svg'
 		},

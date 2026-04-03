@@ -30,7 +30,8 @@ async function boot() {
 		try {
 			await loader();
 		} catch (e) {
-			console.warn(`[SideX] Barrel stage "${label}" failed (non-fatal):`, e);
+			console.error(`[SideX] Barrel stage "${label}" failed:`, e);
+			throw e;
 		}
 	}
 

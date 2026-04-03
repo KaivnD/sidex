@@ -219,19 +219,18 @@ export const tocData: ITOCEntry<string> = {
 						'accessibility.signals.chatResponseReceived'
 					]
 				},
-				{
-					id: 'chat/sessions',
-					label: localize('chatSessions', "Sessions"),
-					settings: [
-						'chat.agentSessionProjection.*',
-						'chat.sessions.*',
-						'chat.viewProgressBadge.*',
-						'chat.viewSessions.*',
-						'chat.restoreLastPanelSession',
-						'chat.exitAfterDelegation',
-						'chat.repoInfo.*'
-					]
-				},
+			{
+				id: 'chat/sessions',
+				label: localize('chatSessions', "Sessions"),
+				settings: [
+					'chat.sessions.*',
+					'chat.viewProgressBadge.*',
+					'chat.viewSessions.*',
+					'chat.restoreLastPanelSession',
+					'chat.exitAfterDelegation',
+					'chat.repoInfo.*'
+				]
+			},
 				{
 					id: 'chat/tools',
 					label: localize('chatTools', "Tools"),

@@ -124,8 +124,7 @@ import './services/userAttention/browser/userAttentionBrowser.js';
 import './services/editor/browser/editorPaneService.js';
 import './services/editor/common/customEditorLabelService.js';
 import './services/dataChannel/browser/dataChannelService.js';
-import './services/inlineCompletions/common/inlineCompletionsUnification.js';
-import './services/log/common/defaultLogLevels.js';
+import './contrib/inlineCompletions/browser/renameSymbolTrackerService.js';import './services/log/common/defaultLogLevels.js';
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
 import { GlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionEnablementService.js';
