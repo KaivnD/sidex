@@ -1302,7 +1302,7 @@ async function doGitClone(): Promise<void> {
 		console.log('[TauriGit] cloned', url, 'to', dest);
 
 		const newUrl = new URL(window.location.href);
-		newUrl.searchParams.set('folder', `file://${dest}`);
+		newUrl.searchParams.set('folder', URI.file(dest).toString());
 		window.location.href = newUrl.toString();
 	} catch (err) {
 		console.error('[TauriGit] clone failed:', err);

@@ -55,6 +55,10 @@ async function ensureTauri(): Promise<boolean> {
 	}
 }
 
+function getShellBasename(shellPath: string): string {
+	return shellPath.split(/[\\/]/).pop()?.replace(/\.exe$/i, '') || 'zsh';
+}
+
 let nextPtyId = 1;
 
 class TauriPty extends Disposable implements ITerminalChildProcess {
@@ -303,7 +307,7 @@ class TauriTerminalBackend extends Disposable implements ITerminalBackend {
 		_includeDetectedProfiles?: boolean
 	): Promise<ITerminalProfile[]> {
 		const defaultShell = await this.getDefaultSystemShell();
-		const defaultName = defaultShell.split('/').pop() || 'zsh';
+		const defaultName = getShellBasename(defaultShell);
 
 		await ensureTauri();
 
@@ -334,22 +338,26 @@ class TauriTerminalBackend extends Disposable implements ITerminalBackend {
 		if (detectedShells.length > 0) {
 			const profiles: ITerminalProfile[] = [];
 			const seen = new Set<string>();
+			let hasDefaultProfile = false;
 
 			for (const shell of detectedShells) {
 				if (seen.has(shell.name)) {
 					continue;
 				}
 				seen.add(shell.name);
+				const shellBaseName = getShellBasename(shell.path);
+				const isDefault = shell.is_default || shellBaseName === defaultName;
+				hasDefaultProfile = hasDefaultProfile || isDefault;
 				profiles.push({
 					profileName: shell.name,
 					path: shell.path,
-					isDefault: shell.is_default || shell.name === defaultName,
+					isDefault,
 					isAutoDetected: false,
-					icon: iconMap[shell.name] || Codicon.terminal,
+					icon: iconMap[shellBaseName] || iconMap[shell.name] || Codicon.terminal,
 				});
 			}
 
-			if (!seen.has(defaultName)) {
+			if (!hasDefaultProfile) {
 				profiles.unshift({
 					profileName: defaultName,
 					path: defaultShell,
@@ -421,10 +429,18 @@ class TauriTerminalBackend extends Disposable implements ITerminalBackend {
 	}
 
 	async getEnvironment(): Promise<IProcessEnvironment> {
+		await ensureTauri();
+		if (_invoke) {
+			try {
+				return await _invoke('get_all_env') as IProcessEnvironment;
+			} catch {
+				// Fall through to an empty environment if invoke is unavailable.
+			}
+		}
 		return {};
 	}
 	async getShellEnvironment(): Promise<IProcessEnvironment | undefined> {
-		return {};
+		return this.getEnvironment();
 	}
 	async setTerminalLayoutInfo(_layoutInfo?: ITerminalsLayoutInfoById): Promise<void> { }
 	async updateTitle(_id: number, _title: string, _titleSource: TitleEventSource): Promise<void> { }

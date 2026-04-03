@@ -50,7 +50,7 @@ pub fn get_all_env() -> std::collections::HashMap<String, String> {
 pub fn get_shell() -> String {
     env::var("SHELL").unwrap_or_else(|_| {
         if cfg!(target_os = "windows") {
-            "powershell.exe".to_string()
+            super::terminal::resolve_windows_shell()
         } else {
             "/bin/sh".to_string()
         }

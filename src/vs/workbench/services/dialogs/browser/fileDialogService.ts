@@ -119,9 +119,7 @@ export class FileDialogService extends AbstractFileDialogService implements IFil
 			console.log('[SideX] Folder selected:', selected);
 			if (selected && typeof selected === 'string') {
 				const folderUri = URI.file(selected);
-				const url = new URL(window.location.href);
-				url.searchParams.set('folder', folderUri.toString());
-				window.location.href = url.toString();
+				await this.hostService.openWindow([{ folderUri }], { forceNewWindow: _options.forceNewWindow, remoteAuthority: _options.remoteAuthority });
 			}
 		} catch (e) {
 			console.error('[SideX] Failed to open folder dialog:', e);

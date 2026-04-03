@@ -6,17 +6,22 @@
 async function sidexOpenFolder() {
 	try {
 		const { open } = await import('@tauri-apps/plugin-dialog');
+		const { URI } = await import('./vs/base/common/uri.js');
 		const selected = await open({ directory: true, multiple: false });
 		if (selected && typeof selected === 'string') {
-			const url = new URL(window.location.href);
-			url.searchParams.set('folder', `file://${selected}`);
-			window.location.href = url.toString();
+			navigateToFolder(URI.file(selected).toString());
 		}
 	} catch (e) {
 		console.error('[SideX] Failed to open folder picker:', e);
 	}
 }
 (window as any).__sidex_openFolder = sidexOpenFolder;
+
+function navigateToFolder(folderUri: string) {
+	const url = new URL(window.location.href);
+	url.searchParams.set('folder', folderUri);
+	window.location.href = url.toString();
+}
 
 async function boot() {
 	const stages = [
@@ -68,9 +73,7 @@ async function boot() {
 			open: async (_workspace: any, _options: any) => {
 				// When VSCode asks to open a new workspace, reload with the folder param
 				if (_workspace && 'folderUri' in _workspace) {
-					const url = new URL(window.location.href);
-					url.searchParams.set('folder', _workspace.folderUri.toString());
-					window.location.href = url.toString();
+					navigateToFolder(_workspace.folderUri.toString());
 				}
 				return true;
 			},
