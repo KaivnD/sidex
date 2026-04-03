@@ -173,8 +173,8 @@ registerSingleton(IWebWorkerService, WebWorkerService, InstantiationType.Delayed
 
 //#region --- workbench contributions
 
-// Default Account
-import './services/accounts/browser/defaultAccount.js';
+// Default Account (null stub)
+import './services/accounts/browser/nullDefaultAccount.js';
 
 // Telemetry
 import './contrib/telemetry/browser/telemetry.contribution.js';
