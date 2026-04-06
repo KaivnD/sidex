@@ -1,10 +1,10 @@
 [package]
 name = "sidex"
 version = "0.1.0"
-description = "SideX - A Tauri-based code editor"
-authors = ["you"]
-license = ""
-repository = ""
+description = "SideX - A fast, open-source code editor"
+authors = ["Siden Technologies Inc"]
+license = "MIT"
+repository = "https://github.com/sidenai/sidex"
 edition = "2021"
 rust-version = "1.77.2"
 
@@ -24,6 +24,7 @@ tauri = { version = "2.10.3", features = ["tray-icon"] }
 tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-updater = "2"
 
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
