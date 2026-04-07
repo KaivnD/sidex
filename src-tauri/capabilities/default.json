@@ -16,6 +16,10 @@
     "shell:default",
     "shell:allow-open",
 
-    "log:default"
+    "log:default",
+
+    "updater:default",
+    "updater:allow-check",
+    "updater:allow-download-and-install"
   ]
 }
