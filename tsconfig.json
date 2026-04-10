@@ -21,12 +21,13 @@
     "allowJs": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "ignoreDeprecations": "6.0",
     "baseUrl": "src",
     "paths": {
       "vs/*": ["vs/*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "bun"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "server/*"],
   "exclude": ["node_modules", "src-tauri", "dist", "**/test/**"]
 }
