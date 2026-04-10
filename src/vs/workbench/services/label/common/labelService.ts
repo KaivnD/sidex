@@ -382,7 +382,7 @@ export class LabelService extends Disposable implements ILabelService {
 			case Verbosity.SHORT:
 			case Verbosity.MEDIUM:
 			default:
-				label = basename(folderUri) || posix.sep;
+				label = basenameOrAuthority(folderUri);
 				break;
 		}
 
