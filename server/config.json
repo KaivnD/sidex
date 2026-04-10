@@ -1,0 +1,8 @@
+{
+  "workspaces": {
+    "default": "./workspaces/default",
+    "test": "./workspaces/test"
+  },
+  "port": 5945,
+  "host": "localhost"
+}

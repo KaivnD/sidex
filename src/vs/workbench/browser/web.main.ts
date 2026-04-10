@@ -61,6 +61,7 @@ import { WorkspaceTrustEnablementService, WorkspaceTrustManagementService } from
 import { IWorkspaceTrustEnablementService, IWorkspaceTrustManagementService } from '../../platform/workspace/common/workspaceTrust.js';
 import { HTMLFileSystemProvider } from '../../platform/files/browser/htmlFileSystemProvider.js';
 import { TauriFileSystemProvider } from '../../platform/files/browser/tauriFileSystemProvider.js';
+import { CloudFileSystemProvider } from '../../platform/files/browser/cloudFileSystemProvider.js';
 import { IOpenerService } from '../../platform/opener/common/opener.js';
 import { mixin, safeStringify } from '../../base/common/objects.js';
 import { IndexedDB } from '../../base/browser/indexedDB.js';
@@ -524,6 +525,26 @@ export class BrowserMain extends Disposable {
 
 		// In-memory
 		fileService.registerProvider(Schemas.tmp, new InMemoryFileSystemProvider());
+
+		// Cloud IDE file system provider (when workspace is cloud://)
+		const workspace = this.configuration.workspaceProvider?.workspace;
+		if (workspace && isFolderToOpen(workspace) && workspace.folderUri.scheme === 'cloud') {
+			const workspaceId = workspace.folderUri.authority;
+			const wsProtocol = mainWindow.location.protocol === 'https:' ? 'wss:' : 'ws:';
+			const wsHost = mainWindow.location.hostname;
+			const wsPort = 5945; // Default Cloud IDE server port
+			const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}?workspaceId=${workspaceId}`;
+
+			logService.info(`[SideX Cloud] Connecting to workspace ${workspaceId} via ${wsUrl}`);
+
+			try {
+				const cloudProvider = new CloudFileSystemProvider(wsUrl);
+				fileService.registerProvider('cloud', cloudProvider);
+				logService.info(`[SideX Cloud] Registered CloudFileSystemProvider for cloud:// scheme (workspace: ${workspaceId})`);
+			} catch (err) {
+				logService.error('[SideX Cloud] Failed to create CloudFileSystemProvider:', err);
+			}
+		}
 	}
 
 	private registerDeveloperActions(provider: IndexedDBFileSystemProvider): void {
