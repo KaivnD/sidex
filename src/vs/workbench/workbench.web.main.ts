@@ -39,9 +39,8 @@ import './services/integrity/browser/integrityService.js';
 import './services/search/browser/tauriSearchService.js';
 import './services/textfile/browser/browserTextFileService.js';
 import './services/keybinding/browser/keyboardLayoutService.js';
-// Extensions - Using Null implementations
-// import './services/extensions/browser/extensionService.js';
-import './services/extensions/browser/nullExtensionService.js';
+// Extension Service - Using Builtin-only implementation for themes support
+import './services/extensions/browser/builtinExtensionService.js';
 import './services/extensionManagement/browser/extensionsProfileScannerService.js';
 import './services/extensions/browser/extensionsScannerService.js';
 import './services/extensionManagement/browser/webExtensionsScannerService.js';
@@ -136,6 +135,10 @@ import './contrib/webview/browser/webview.web.contribution.js';
 
 // Extensions Management
 import './contrib/extensions/browser/extensions.web.contribution.js';
+import './contrib/extensions/browser/extensions.contribution.js';
+
+// SideX Contributions
+import './contrib/sidex/browser/hideExtensionsView.contribution.js';
 
 // Terminal
 import './contrib/terminal/browser/terminal.web.contribution.js';
