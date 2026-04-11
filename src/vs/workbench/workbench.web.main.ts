@@ -36,7 +36,7 @@ import './browser/web.main.js';
 
 import './services/remote/browser/nullRemoteAgentService.js';
 import './services/integrity/browser/integrityService.js';
-import './services/search/browser/cloudSearchService.js';  // Cloud search using ripgrep
+import './services/search/browser/cloudSearchService.js';
 import './services/textfile/browser/browserTextFileService.js';
 import './services/keybinding/browser/keyboardLayoutService.js';
 // Extension Service - Using Builtin-only implementation for themes support

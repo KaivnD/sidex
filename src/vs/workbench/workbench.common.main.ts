@@ -77,6 +77,20 @@ import './services/language/common/languageService.js';
 import './services/model/common/modelService.js';
 // Notebook Document Service - Disabled
 // import './services/notebook/common/notebookDocumentService.js';
+// Null Notebook Services - Register early before any search contributions
+import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
+import { INotebookService } from './contrib/notebook/common/notebookService.js';
+import { INotebookEditorModelResolverService } from './contrib/notebook/common/notebookEditorModelResolverService.js';
+import { INotebookEditorService } from './contrib/notebook/browser/services/notebookEditorService.js';
+import { INotebookSearchService } from './contrib/search/common/notebookSearch.js';
+import { NullNotebookService } from './contrib/notebook/common/nullNotebookService.js';
+import { NullNotebookEditorModelResolverService } from './contrib/notebook/common/nullNotebookEditorModelResolverService.js';
+import { NullNotebookEditorService } from './contrib/notebook/common/nullNotebookEditorService.js';
+import { NullNotebookSearchService } from './contrib/notebook/common/nullNotebookSearchService.js';
+registerSingleton(INotebookService, NullNotebookService, InstantiationType.Delayed);
+registerSingleton(INotebookEditorModelResolverService, NullNotebookEditorModelResolverService, InstantiationType.Delayed);
+registerSingleton(INotebookEditorService, NullNotebookEditorService, InstantiationType.Delayed);
+registerSingleton(INotebookSearchService, NullNotebookSearchService, InstantiationType.Delayed);
 import './services/commands/common/commandService.js';
 import './services/themes/browser/workbenchThemeService.js';
 import './services/label/common/labelService.js';
