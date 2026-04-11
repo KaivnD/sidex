@@ -75,7 +75,8 @@ import './services/textresourceProperties/common/textResourcePropertiesService.j
 import './services/textfile/common/textEditorService.js';
 import './services/language/common/languageService.js';
 import './services/model/common/modelService.js';
-import './services/notebook/common/notebookDocumentService.js';
+// Notebook Document Service - Disabled
+// import './services/notebook/common/notebookDocumentService.js';
 import './services/commands/common/commandService.js';
 import './services/themes/browser/workbenchThemeService.js';
 import './services/label/common/labelService.js';
@@ -91,8 +92,10 @@ import './services/userDataProfile/browser/userDataProfileImportExportService.js
 import './services/userDataProfile/browser/userDataProfileManagement.js';
 import './services/userDataProfile/common/remoteUserDataProfiles.js';
 import './services/remote/common/remoteExplorerService.js';
-import './services/remote/common/remoteExtensionsScanner.js';
-import './services/terminal/common/embedderTerminalService.js';
+// Remote Extensions Scanner - Using Null implementation
+import './services/remote/common/nullRemoteExtensionsScanner.js';
+// Embedder Terminal Service - Using Null implementation
+import './services/terminal/common/nullEmbedderTerminalService.js';
 import './services/workingCopy/common/workingCopyService.js';
 import './services/workingCopy/common/workingCopyFileService.js';
 import './services/workingCopy/common/workingCopyEditorService.js';
@@ -171,7 +174,8 @@ registerSingleton(IWebWorkerService, WebWorkerService, InstantiationType.Delayed
 import './services/accounts/browser/nullDefaultAccount.js';
 
 // Telemetry
-import './contrib/telemetry/browser/telemetry.contribution.js';
+// Telemetry - Disabled
+// import './contrib/telemetry/browser/telemetry.contribution.js';
 
 // Preferences
 import './contrib/preferences/browser/preferences.contribution.js';
@@ -181,20 +185,22 @@ import './contrib/preferences/browser/preferencesSearch.js';
 // Performance
 import './contrib/performance/browser/performance.contribution.js';
 
-// Notebook
-import './contrib/notebook/browser/notebook.contribution.js';
+// Notebook - Disabled
+// import './contrib/notebook/browser/notebook.contribution.js';
 
-// Speech
-import './contrib/speech/browser/speech.contribution.js';
+// Speech - Disabled
+// Speech - Using Null implementation
+import './contrib/speech/browser/nullSpeechService.js';
+// import './contrib/speech/browser/speech.contribution.js';
 
-// Interactive
-import './contrib/interactive/browser/interactive.contribution.js';
+// Interactive - Disabled
+// import './contrib/interactive/browser/interactive.contribution.js';
 
-// repl
-import './contrib/replNotebook/browser/repl.contribution.js';
+// repl - Disabled
+// import './contrib/replNotebook/browser/repl.contribution.js';
 
-// Testing
-import './contrib/testing/browser/testing.contribution.js';
+// Testing - Disabled
+// import './contrib/testing/browser/testing.contribution.js';
 
 // Logs
 import './contrib/logs/common/logs.contribution.js';
@@ -215,78 +221,81 @@ import './contrib/bulkEdit/browser/preview/bulkEdit.contribution.js';
 import './contrib/search/browser/search.contribution.js';
 import './contrib/search/browser/searchView.js';
 
-// Search Editor
-import './contrib/searchEditor/browser/searchEditor.contribution.js';
+// Search Editor - Disabled
+// import './contrib/searchEditor/browser/searchEditor.contribution.js';
 
 // Sash
 import './contrib/sash/browser/sash.contribution.js';
 
-// SCM
-import './contrib/scm/browser/scm.contribution.js';
-import './contrib/scm/browser/git.contribution.js';
+// SCM - Using Null implementation
+import './contrib/scm/browser/nullSCMService.js';
+// import './contrib/scm/browser/scm.contribution.js';
+// import './contrib/scm/browser/git.contribution.js';
 
-// Debug
-import './contrib/debug/browser/debug.contribution.js';
-import './contrib/debug/browser/debugEditorContribution.js';
-import './contrib/debug/browser/breakpointEditorContribution.js';
-import './contrib/debug/browser/callStackEditorContribution.js';
-import './contrib/debug/browser/repl.js';
-import './contrib/debug/browser/debugViewlet.js';
+// Debug - Using Null implementation
+import './contrib/debug/browser/nullDebugService.js';
+// import './contrib/debug/browser/debug.contribution.js';
+// import './contrib/debug/browser/debugEditorContribution.js';
+// import './contrib/debug/browser/breakpointEditorContribution.js';
+// import './contrib/debug/browser/callStackEditorContribution.js';
+// import './contrib/debug/browser/repl.js';
+// import './contrib/debug/browser/debugViewlet.js';
 
-// Markers
-import './contrib/markers/browser/markers.contribution.js';
+// Markers - Disabled
+// import './contrib/markers/browser/markers.contribution.js';
 
-// Process Explorer
-import './contrib/processExplorer/browser/processExplorer.contribution.js';
+// Process Explorer - Disabled
+// import './contrib/processExplorer/browser/processExplorer.contribution.js';
 
-// Merge Editor
-import './contrib/mergeEditor/browser/mergeEditor.contribution.js';
+// Merge Editor - Disabled
+// import './contrib/mergeEditor/browser/mergeEditor.contribution.js';
 
-// Multi Diff Editor
-import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
+// Multi Diff Editor - Disabled
+// import './contrib/multiDiffEditor/browser/multiDiffEditor.contribution.js';
 
 // Commands
 import './contrib/commands/common/commands.contribution.js';
 
-// Comments
-import './contrib/comments/browser/comments.contribution.js';
+// Comments - Disabled
+// import './contrib/comments/browser/comments.contribution.js';
 
-// URL Support
-import './contrib/url/browser/url.contribution.js';
+// URL Support - Disabled
+// import './contrib/url/browser/url.contribution.js';
 
-// Webview
-import './contrib/webview/browser/webview.contribution.js';
-import './contrib/webviewPanel/browser/webviewPanel.contribution.js';
-import './contrib/webviewView/browser/webviewView.contribution.js';
-import './contrib/customEditor/browser/customEditor.contribution.js';
+// Webview - Disabled
+// import './contrib/webview/browser/webview.contribution.js';
+// import './contrib/webviewPanel/browser/webviewPanel.contribution.js';
+// import './contrib/webviewView/browser/webviewView.contribution.js';
+// import './contrib/customEditor/browser/customEditor.contribution.js';
 
-// Image Preview
-import './contrib/imagePreview/browser/imagePreview.contribution.js';
+// Image Preview - Disabled
+// import './contrib/imagePreview/browser/imagePreview.contribution.js';
 
 // External Uri Opener
 import './contrib/externalUriOpener/common/externalUriOpener.contribution.js';
 
-// Extensions Management
-import './contrib/extensions/browser/extensions.contribution.js';
-import './contrib/extensions/browser/extensionsViewlet.js';
+// Extensions Management - Disabled (using NullExtensionService)
+// import './contrib/extensions/browser/extensions.contribution.js';
+// import './contrib/extensions/browser/extensionsViewlet.js';
 
-// Output View
-import './contrib/output/browser/output.contribution.js';
-import './contrib/output/browser/outputView.js';
+// Output View - Disabled
+// import './contrib/output/browser/output.contribution.js';
+// import './contrib/output/browser/outputView.js';
 
-// Terminal
-import './contrib/terminal/terminal.all.js';
+// Terminal - Disabled (using NullEmbedderTerminalService)
+// import './contrib/terminal/terminal.all.js';
 
-// Tauri Terminal Backend (registered via terminal.contribution.ts)
+// Tauri Terminal Backend (disabled)
 
-// External terminal
-import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
+// External terminal - Disabled
+// import './contrib/externalTerminal/browser/externalTerminal.contribution.js';
 
-// Relauncher
-import './contrib/relauncher/browser/relauncher.contribution.js';
+// Relauncher - Disabled
+// import './contrib/relauncher/browser/relauncher.contribution.js';
 
-// Tasks
-import './contrib/tasks/browser/task.contribution.js';
+// Tasks - Using Null implementation
+import './contrib/tasks/browser/nullTaskService.js';
+// import './contrib/tasks/browser/task.contribution.js';
 
 // Emmet
 import './contrib/emmet/browser/emmet.contribution.js';
@@ -374,8 +383,8 @@ import './contrib/list/browser/list.contribution.js';
 // Accessibility Signals
 import './contrib/accessibilitySignals/browser/accessibilitySignal.contribution.js';
 
-// Bracket Pair Colorizer 2 Telemetry
-import './contrib/bracketPairColorizer2Telemetry/browser/bracketPairColorizer2Telemetry.contribution.js';
+// Bracket Pair Colorizer 2 Telemetry - Disabled
+// import './contrib/bracketPairColorizer2Telemetry/browser/bracketPairColorizer2Telemetry.contribution.js';
 
 // Accessibility
 import './contrib/accessibility/browser/accessibility.contribution.js';

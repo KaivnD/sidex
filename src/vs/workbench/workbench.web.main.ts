@@ -39,7 +39,9 @@ import './services/integrity/browser/integrityService.js';
 import './services/search/browser/tauriSearchService.js';
 import './services/textfile/browser/browserTextFileService.js';
 import './services/keybinding/browser/keyboardLayoutService.js';
-import './services/extensions/browser/extensionService.js';
+// Extensions - Using Null implementations
+// import './services/extensions/browser/extensionService.js';
+import './services/extensions/browser/nullExtensionService.js';
 import './services/extensionManagement/browser/extensionsProfileScannerService.js';
 import './services/extensions/browser/extensionsScannerService.js';
 import './services/extensionManagement/browser/webExtensionsScannerService.js';
