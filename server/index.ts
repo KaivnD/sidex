@@ -10,6 +10,9 @@ import { WorkspaceRegistry, WorkspaceInfo } from './workspaceRegistry';
 // Types matching VS Code file system provider interface
 type FileType = 'file' | 'directory' | 'symlink';
 
+// Chunk transfer configuration
+const CHUNK_SIZE = 256 * 1024; // 256KB chunks for large file transfer
+
 interface FileStat {
   type: FileType;
   size: number;
@@ -70,10 +73,34 @@ interface ConnectionContext {
   nextFd: number;
   watchers: Map<string, WatcherInfo>;
   send: (data: any) => void;
+  lastPing: number; // Last ping timestamp
+  isAlive: boolean; // Connection health status
 }
 
 const connections = new Map<any, ConnectionContext>();
 let nextGlobalFd = 1;
+
+// Heartbeat configuration
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const HEARTBEAT_TIMEOUT = 60000; // 60 seconds
+
+// Start heartbeat checker
+setInterval(() => {
+  for (const [ws, ctx] of connections) {
+    if (!ctx.isAlive) {
+      console.log(`[Server] Connection timeout, closing: ${ctx.workspaceId}`);
+      ws.close();
+      continue;
+    }
+    ctx.isAlive = false;
+    // Send ping frame (Bun WebSocket supports ping/pong natively)
+    try {
+      ws.ping();
+    } catch {
+      ctx.isAlive = false;
+    }
+  }
+}, HEARTBEAT_INTERVAL);
 
 // Error code mapping
 function getErrorCode(err: any): string {
@@ -138,21 +165,43 @@ class FileOperations {
     }));
   }
 
-  async readFile(relativePath: string): Promise<{ buffer: string }> {
+  async readFile(relativePath: string): Promise<{ buffer: string; totalSize?: number; hasMore?: boolean }> {
     const absPath = this.resolvePath(relativePath);
     if (!absPath) throw makeError('Invalid path', 'NoPermissions');
 
     // Use Bun's optimized file reading
     const file = Bun.file(absPath);
+    const stat = await file.stat();
     const content = Buffer.from(await file.arrayBuffer());
+
+    // If file is larger than CHUNK_SIZE, return partial with hasMore flag
+    if (content.length > CHUNK_SIZE) {
+      return {
+        buffer: bufferToBase64(content.slice(0, CHUNK_SIZE)),
+        totalSize: content.length,
+        hasMore: true,
+      };
+    }
+
     return { buffer: bufferToBase64(content) };
+  }
+
+  async readFileChunk(relativePath: string, offset: number, length: number): Promise<{ buffer: string }> {
+    const absPath = this.resolvePath(relativePath);
+    if (!absPath) throw makeError('Invalid path', 'NoPermissions');
+
+    const file = Bun.file(absPath);
+    const content = Buffer.from(await file.arrayBuffer());
+    const chunk = content.slice(offset, Math.min(offset + length, content.length));
+
+    return { buffer: bufferToBase64(chunk) };
   }
 
   async writeFile(
     relativePath: string,
     contentBase64: string,
-    opts: { create?: boolean; overwrite?: boolean },
-  ): Promise<void> {
+    opts: { create?: boolean; overwrite?: boolean; append?: boolean; offset?: number },
+  ): Promise<{ bytesWritten: number; needsMore?: boolean }> {
     const absPath = this.resolvePath(relativePath);
     if (!absPath) throw makeError('Invalid path', 'NoPermissions');
 
@@ -160,14 +209,16 @@ class FileOperations {
 
     // Check if file exists
     let exists = false;
+    let currentSize = 0;
     try {
-      await fs.promises.stat(absPath);
+      const stat = await fs.promises.stat(absPath);
       exists = true;
+      currentSize = stat.size;
     } catch (e: any) {
       if (e.code !== 'ENOENT') throw e;
     }
 
-    if (exists && !opts.overwrite && !opts.create) {
+    if (exists && !opts.overwrite && !opts.create && !opts.append) {
       throw makeError('File exists', 'FileExists');
     }
     if (!exists && !opts.create) {
@@ -178,8 +229,32 @@ class FileOperations {
     const parentDir = path.dirname(absPath);
     await fs.promises.mkdir(parentDir, { recursive: true });
 
-    // Use Bun's optimized file writing
-    await Bun.write(absPath, content);
+    if (opts.append) {
+      // Append mode for chunked uploads
+      const fd = await fs.promises.open(absPath, exists ? 'a' : 'w');
+      try {
+        await fd.write(content, 0, content.length, opts.offset || currentSize);
+        return { bytesWritten: content.length };
+      } finally {
+        await fd.close();
+      }
+    } else {
+      // Single write mode
+      await Bun.write(absPath, content);
+      return { bytesWritten: content.length };
+    }
+  }
+
+  async initWriteStream(relativePath: string, opts: { overwrite?: boolean }): Promise<{ streamId: string; ready: boolean }> {
+    const absPath = this.resolvePath(relativePath);
+    if (!absPath) throw makeError('Invalid path', 'NoPermissions');
+
+    // Truncate file if overwrite requested
+    if (opts.overwrite) {
+      await Bun.write(absPath, '');
+    }
+
+    return { streamId: relativePath, ready: true };
   }
 
   async mkdir(relativePath: string, opts: { recursive?: boolean }): Promise<void> {
@@ -349,6 +424,206 @@ class FileOperations {
       this.ctx.watchers.delete(key);
     }
   }
+
+  //#region Search Operations (using ripgrep)
+
+  async searchFiles(
+    relativePath: string,
+    pattern: string,
+    opts: {
+      max_results: number;
+      include: string[];
+      exclude: string[];
+    }
+  ): Promise<{ path: string; name: string }[]> {
+    const absPath = this.resolvePath(relativePath);
+    if (!absPath) throw makeError('Invalid path', 'NoPermissions');
+
+    // Build ripgrep args for file search
+    const args = ['--files'];
+
+    // Add pattern filtering if provided
+    if (pattern) {
+      args.push('--glob', pattern);
+    }
+
+    // Add include patterns
+    for (const inc of opts.include) {
+      args.push('--glob', inc);
+    }
+
+    // Add exclude patterns
+    for (const exc of opts.exclude) {
+      args.push('--glob', `!${exc}`);
+    }
+
+    // Limit results
+    args.push('--max-count', String(opts.max_results));
+
+    args.push(absPath);
+
+    try {
+      const proc = Bun.spawn(['rg', ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      const output = await new Response(proc.stdout).text();
+      const files = output.trim().split('\n').filter(Boolean);
+
+      return files.slice(0, opts.max_results).map(filePath => ({
+        path: filePath,
+        name: path.basename(filePath),
+      }));
+    } catch (err) {
+      // ripgrep not installed or error - fallback to basic file listing
+      console.warn('[Server] ripgrep failed, using fallback:', err);
+      return this.fallbackFileSearch(absPath, pattern, opts);
+    }
+  }
+
+  async searchText(
+    relativePath: string,
+    query: string,
+    opts: {
+      max_results: number;
+      case_sensitive: boolean;
+      is_regex: boolean;
+      include: string[];
+      exclude: string[];
+    }
+  ): Promise<{ path: string; line_number: number; line_content: string; column: number; match_length: number }[]> {
+    const absPath = this.resolvePath(relativePath);
+    if (!absPath) throw makeError('Invalid path', 'NoPermissions');
+
+    // Build ripgrep args for text search
+    const args = [
+      '--json', // Output as JSON for easier parsing
+      '--line-number',
+      '--column',
+    ];
+
+    // Case sensitivity
+    if (!opts.case_sensitive) {
+      args.push('--ignore-case');
+    }
+
+    // Regex mode
+    if (opts.is_regex) {
+      args.push('--regexp', query);
+    } else {
+      args.push('--fixed-strings', query);
+    }
+
+    // Add include patterns
+    for (const inc of opts.include) {
+      args.push('--glob', inc);
+    }
+
+    // Add exclude patterns
+    for (const exc of opts.exclude) {
+      args.push('--glob', `!${exc}`);
+    }
+
+    // Limit results per file
+    args.push('--max-count', String(Math.ceil(opts.max_results / 10)));
+
+    args.push(absPath);
+
+    try {
+      const proc = Bun.spawn(['rg', ...args], {
+        stdout: 'pipe',
+        stderr: 'pipe',
+      });
+
+      const output = await new Response(proc.stdout).text();
+      const results: any[] = [];
+
+      for (const line of output.trim().split('\n').filter(Boolean)) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === 'match') {
+            const data = parsed.data;
+            for (const submatch of data.submatches) {
+              results.push({
+                path: data.path.text,
+                line_number: data.line_number,
+                line_content: data.lines.text.trimEnd(),
+                column: submatch.start,
+                match_length: submatch.end - submatch.start,
+              });
+            }
+          }
+        } catch {
+          // Skip invalid JSON lines
+        }
+      }
+
+      return results.slice(0, opts.max_results);
+    } catch (err) {
+      console.warn('[Server] ripgrep failed, using fallback:', err);
+      return this.fallbackTextSearch(absPath, query, opts);
+    }
+  }
+
+  private async fallbackFileSearch(
+    absPath: string,
+    pattern: string,
+    opts: { max_results: number }
+  ): Promise<{ path: string; name: string }[]> {
+    const results: { path: string; name: string }[] = [];
+    const glob = new Bun.Glob(pattern || '**/*');
+
+    for await (const file of glob.scan({ cwd: absPath, absolute: true })) {
+      if (results.length >= opts.max_results) break;
+      results.push({ path: file, name: path.basename(file) });
+    }
+
+    return results;
+  }
+
+  private async fallbackTextSearch(
+    absPath: string,
+    query: string,
+    opts: { max_results: number; case_sensitive: boolean }
+  ): Promise<{ path: string; line_number: number; line_content: string; column: number; match_length: number }[]> {
+    const results: any[] = [];
+    const searchGlob = new Bun.Glob('**/*.{ts,js,json,md,txt,yml,yaml}');
+
+    for await (const file of searchGlob.scan({ cwd: absPath, absolute: true })) {
+      if (results.length >= opts.max_results) break;
+
+      try {
+        const content = await Bun.file(file).text();
+        const lines = content.split('\n');
+        const searchQuery = opts.case_sensitive ? query : query.toLowerCase();
+
+        for (let i = 0; i < lines.length; i++) {
+          const line = lines[i];
+          const searchLine = opts.case_sensitive ? line : line.toLowerCase();
+          const index = searchLine.indexOf(searchQuery);
+
+          if (index !== -1) {
+            results.push({
+              path: file,
+              line_number: i + 1,
+              line_content: line.trimEnd(),
+              column: index,
+              match_length: query.length,
+            });
+
+            if (results.length >= opts.max_results) break;
+          }
+        }
+      } catch {
+        // Skip unreadable files
+      }
+    }
+
+    return results;
+  }
+
+  //#endregion
 }
 
 // Handle incoming request
@@ -368,8 +643,14 @@ async function handleRequest(ctx: ConnectionContext, msg: RequestMessage): Promi
       case 'readFile':
         result = await ops.readFile(msg.args[0]);
         break;
+      case 'readFileChunk':
+        result = await ops.readFileChunk(msg.args[0], msg.args[1], msg.args[2]);
+        break;
       case 'writeFile':
         result = await ops.writeFile(msg.args[0], msg.args[1], msg.args[2] || {});
+        break;
+      case 'initWriteStream':
+        result = await ops.initWriteStream(msg.args[0], msg.args[1] || {});
         break;
       case 'mkdir':
         result = await ops.mkdir(msg.args[0], msg.args[1] || {});
@@ -400,6 +681,12 @@ async function handleRequest(ctx: ConnectionContext, msg: RequestMessage): Promi
         break;
       case 'unwatch':
         result = await ops.unwatch(msg.args[0], msg.args[1]);
+        break;
+      case 'searchFiles':
+        result = await ops.searchFiles(msg.args[0], msg.args[1], msg.args[2]);
+        break;
+      case 'searchText':
+        result = await ops.searchText(msg.args[0], msg.args[1], msg.args[2]);
         break;
       default:
         throw makeError(`Unknown method: ${msg.method}`, 'Unknown');
@@ -481,10 +768,20 @@ export function createSideXServer(port: number, host: string) {
           nextFd: 1,
           watchers: new Map(),
           send: (data) => ws.send(JSON.stringify(data)),
+          lastPing: Date.now(),
+          isAlive: true,
         };
 
         connections.set(ws, ctx);
         console.log(`[Server] Client connected to workspace: ${workspaceId} (${workspace.rootPath})`);
+      },
+
+      pong(ws) {
+        const ctx = connections.get(ws);
+        if (ctx) {
+          ctx.isAlive = true;
+          ctx.lastPing = Date.now();
+        }
       },
 
       async message(ws, message) {

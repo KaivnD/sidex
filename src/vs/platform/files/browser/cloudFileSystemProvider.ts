@@ -116,6 +116,14 @@ export class CloudFileSystemProvider extends Disposable implements
 			}
 			this.pendingRequests.clear();
 		};
+
+		// Note: Browser WebSocket automatically responds to server ping with pong
+		// We just need to listen for connection issues
+		this._register(toDisposable(() => {
+			if (this.ws.readyState === WebSocket.OPEN) {
+				this.ws.close();
+			}
+		}));
 	}
 
 	private handleMessage(data: ResponseMessage | FileChangeBroadcast): void {
@@ -245,16 +253,81 @@ export class CloudFileSystemProvider extends Disposable implements
 	//#region File Reading/Writing
 
 	async readFile(resource: URI): Promise<Uint8Array> {
-		const result = await this.request<{ buffer: string }>('readFile', [CloudFileSystemProvider.toRelativePath(resource)]);
-		return this.base64ToUint8Array(result.buffer);
+		const relativePath = CloudFileSystemProvider.toRelativePath(resource);
+		const result = await this.request<{
+			buffer: string;
+			totalSize?: number;
+			hasMore?: boolean;
+		}>('readFile', [relativePath]);
+
+		// If file fits in single chunk, return directly
+		if (!result.hasMore) {
+			return this.base64ToUint8Array(result.buffer);
+		}
+
+		// Large file: accumulate chunks
+		const firstChunk = this.base64ToUint8Array(result.buffer);
+		const totalSize = result.totalSize!;
+		const chunks: Uint8Array[] = [firstChunk];
+		let received = firstChunk.length;
+
+		// Fetch remaining chunks
+		const CHUNK_SIZE = 256 * 1024; // Must match server CHUNK_SIZE
+		while (received < totalSize) {
+			const chunkResult = await this.request<{ buffer: string }>(
+				'readFileChunk',
+				[relativePath, received, CHUNK_SIZE]
+			);
+			const chunk = this.base64ToUint8Array(chunkResult.buffer);
+			chunks.push(chunk);
+			received += chunk.length;
+
+			// Safety check
+			if (chunk.length === 0) break;
+		}
+
+		// Combine all chunks
+		const combined = new Uint8Array(totalSize);
+		let offset = 0;
+		for (const chunk of chunks) {
+			combined.set(chunk, offset);
+			offset += chunk.length;
+		}
+		return combined;
 	}
 
 	async writeFile(resource: URI, content: Uint8Array, opts: IFileWriteOptions): Promise<void> {
-		await this.request('writeFile', [
-			CloudFileSystemProvider.toRelativePath(resource),
-			this.uint8ArrayToBase64(content),
-			{ create: opts.create, overwrite: opts.overwrite }
+		const relativePath = CloudFileSystemProvider.toRelativePath(resource);
+		const CHUNK_SIZE = 256 * 1024; // 256KB chunks
+
+		// Small file: single write
+		if (content.length <= CHUNK_SIZE) {
+			await this.request('writeFile', [
+				relativePath,
+				this.uint8ArrayToBase64(content),
+				{ create: opts.create, overwrite: opts.overwrite }
+			]);
+			return;
+		}
+
+		// Large file: chunked upload
+		// Initialize write stream
+		await this.request('initWriteStream', [
+			relativePath,
+			{ overwrite: opts.overwrite }
 		]);
+
+		// Upload chunks
+		let offset = 0;
+		while (offset < content.length) {
+			const chunk = content.slice(offset, Math.min(offset + CHUNK_SIZE, content.length));
+			await this.request('writeFile', [
+				relativePath,
+				this.uint8ArrayToBase64(chunk),
+				{ create: offset === 0, append: true, offset }
+			]);
+			offset += chunk.length;
+		}
 	}
 
 	//#endregion

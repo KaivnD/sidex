@@ -330,12 +330,7 @@ import './contrib/themes/browser/themes.contribution.js';
 // Update
 import './contrib/update/browser/update.contribution.js';
 
-// Surveys
-import './contrib/surveys/browser/nps.contribution.js';
-import './contrib/surveys/browser/languageSurveys.contribution.js';
-
 // Welcome
-import './contrib/welcomeGettingStarted/browser/gettingStarted.contribution.js';
 import './contrib/welcomeWalkthrough/browser/walkThrough.contribution.js';
 import './contrib/welcomeViews/common/viewsWelcome.contribution.js';
 import './contrib/welcomeViews/common/newFile.contribution.js';
@@ -401,8 +396,8 @@ import './contrib/scrollLocking/browser/scrollLocking.contribution.js';
 // Drop or paste into
 import './contrib/dropOrPasteInto/browser/dropOrPasteInto.contribution.js';
 
-// Edit Telemetry
-import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
+// Edit Telemetry - Disabled
+// import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 
 // Opener
 import './contrib/opener/browser/opener.contribution.js';
