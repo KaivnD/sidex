@@ -59,7 +59,7 @@ export class BuiltinExtensionsScannerService implements IBuiltinExtensionsScanne
 					// Fallback: check for DOM meta element
 					// eslint-disable-next-line no-restricted-syntax
 					const builtinExtensionsElement = mainWindow.document.getElementById('vscode-workbench-builtin-extensions');
-					const builtinExtensionsElementAttribute = builtinExtensionsElement ? builtinExtensionsElement.getAttribute('data-settings') : undefined;
+					const builtinExtensionsElementAttribute = builtinExtensionsElement ? builtinExtensionsElement.innerText.trim() : undefined;
 					if (builtinExtensionsElementAttribute) {
 						try {
 							bundledExtensions = JSON.parse(builtinExtensionsElementAttribute);

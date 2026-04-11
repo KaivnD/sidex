@@ -532,7 +532,7 @@ export class BrowserMain extends Disposable {
 			const workspaceId = workspace.folderUri.authority;
 			const wsProtocol = mainWindow.location.protocol === 'https:' ? 'wss:' : 'ws:';
 			const wsHost = mainWindow.location.hostname;
-			const wsPort = 5945; // Default Cloud IDE server port
+			const wsPort = mainWindow.location.port || (mainWindow.location.protocol === 'https:' ? '443' : '80');
 			const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}?workspaceId=${workspaceId}`;
 
 			logService.info(`[SideX Cloud] Connecting to workspace ${workspaceId} via ${wsUrl}`);

@@ -75,8 +75,8 @@ boot().catch((err) => {
     <div style="padding: 20px; color: #f33; font-family: monospace;">
       <h2>SideX Cloud IDE Failed to Start</h2>
       <pre>${err.message || err}</pre>
-      <p>Make sure the Cloud IDE server is running on port 5945:</p>
-      <code>cd cloud-server && npm run dev</code>
+      <p>Make sure the Cloud IDE server is running:</p>
+      <code>bun run dev:all</code>
     </div>
   `;
 });

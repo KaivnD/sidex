@@ -54,12 +54,13 @@ interface WatcherInfo {
   path: string;
 }
 
-// Server configuration
-const CONFIG_PATH = path.join(process.cwd(), 'config.json');
+// Server configuration - use import.meta.dir to be location-independent
+const SERVER_DIR = import.meta.dir;
+const CONFIG_PATH = path.join(SERVER_DIR, 'config.json');
 const registry = new WorkspaceRegistry(CONFIG_PATH);
 const config = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf-8'));
-const PORT = config.port || 5945;
-const HOST = config.host || 'localhost';
+const DEFAULT_PORT = config.port || 5945;
+const DEFAULT_HOST = config.host || 'localhost';
 
 // Per-connection state
 interface ConnectionContext {
@@ -122,7 +123,7 @@ class FileOperations {
       size: stat.size,
       mtime: stat.mtimeMs,
       ctime: stat.ctimeMs,
-      permissions: undefined
+      permissions: undefined,
     };
   }
 
@@ -131,10 +132,9 @@ class FileOperations {
     if (!absPath) throw makeError('Invalid path', 'NoPermissions');
 
     const entries = await fs.promises.readdir(absPath, { withFileTypes: true });
-    return entries.map(entry => ({
+    return entries.map((entry) => ({
       name: entry.name,
-      type: entry.isDirectory() ? 'directory' :
-            entry.isSymbolicLink() ? 'symlink' : 'file'
+      type: entry.isDirectory() ? 'directory' : entry.isSymbolicLink() ? 'symlink' : 'file',
     }));
   }
 
@@ -148,7 +148,11 @@ class FileOperations {
     return { buffer: bufferToBase64(content) };
   }
 
-  async writeFile(relativePath: string, contentBase64: string, opts: { create?: boolean; overwrite?: boolean }): Promise<void> {
+  async writeFile(
+    relativePath: string,
+    contentBase64: string,
+    opts: { create?: boolean; overwrite?: boolean },
+  ): Promise<void> {
     const absPath = this.resolvePath(relativePath);
     if (!absPath) throw makeError('Invalid path', 'NoPermissions');
 
@@ -191,7 +195,7 @@ class FileOperations {
 
     await fs.promises.rm(absPath, {
       recursive: opts.recursive ?? true,
-      force: true
+      force: true,
     });
   }
 
@@ -240,10 +244,13 @@ class FileOperations {
     if (!absPath) throw makeError('Invalid path', 'NoPermissions');
 
     const flags: number =
-      (opts.create && opts.write ? fs.constants.O_CREAT | fs.constants.O_WRONLY :
-       opts.read && opts.write ? fs.constants.O_RDWR :
-       opts.write ? fs.constants.O_WRONLY :
-       fs.constants.O_RDONLY);
+      opts.create && opts.write
+        ? fs.constants.O_CREAT | fs.constants.O_WRONLY
+        : opts.read && opts.write
+          ? fs.constants.O_RDWR
+          : opts.write
+            ? fs.constants.O_WRONLY
+            : fs.constants.O_RDONLY;
 
     const handle = await fs.promises.open(absPath, flags);
     const fd = nextGlobalFd++;
@@ -251,7 +258,7 @@ class FileOperations {
     this.ctx.openFiles.set(fd, {
       fd,
       path: relativePath,
-      handle
+      handle,
     });
 
     return fd;
@@ -274,7 +281,7 @@ class FileOperations {
 
     return {
       buffer: bufferToBase64(buffer.slice(0, bytesRead)),
-      bytesRead
+      bytesRead,
     };
   }
 
@@ -315,14 +322,14 @@ class FileOperations {
       const changePath = path.join(relativePath, filename);
       const change: FileChangeEvent = {
         type: event === 'rename' ? 'created' : 'changed',
-        path: changePath
+        path: changePath,
       };
 
       // Broadcast to client
       this.ctx.send({
         type: 'fileChange',
         sessionId,
-        changes: [change]
+        changes: [change],
       });
     });
 
@@ -330,7 +337,7 @@ class FileOperations {
       sessionId,
       watcher,
       req,
-      path: relativePath
+      path: relativePath,
     });
   }
 
@@ -407,113 +414,149 @@ async function handleRequest(ctx: ConnectionContext, msg: RequestMessage): Promi
 }
 
 // Bun server with WebSocket support
-const server = Bun.serve({
-  port: PORT,
-  hostname: HOST,
+export function createSideXServer(port: number, host: string) {
+  // Extensions directory
+  const extensionsDir = path.resolve(import.meta.dir, '..', 'extensions');
 
-  fetch(req, server) {
-    const url = new URL(req.url);
-
-    // WebSocket upgrade - pass URL in data
-    if (url.pathname === '/' && server.upgrade(req, { data: { url: req.url } })) {
-      return; // Upgraded to WebSocket
+  // Static file serving for extensions
+  async function serveExtensions(req: Request, pathname: string): Promise<Response> {
+    const filePath = path.join(extensionsDir, pathname.slice('/extensions/'.length));
+    try {
+      const file = Bun.file(filePath);
+      const exists = await file.exists();
+      if (!exists) {
+        return new Response('Not found', { status: 404 });
+      }
+      return new Response(file);
+    } catch (err) {
+      return new Response(`Error: ${err}`, { status: 500 });
     }
+  }
 
-    // Health check endpoint
-    return new Response('SideX Cloud IDE Server - WebSocket endpoint available');
-  },
+  return Bun.serve({
+    port,
+    hostname: host,
 
-  websocket: {
-    open(ws) {
-      const url = new URL(ws.data.url || '/', `http://${HOST}`);
-      const workspaceId = url.searchParams.get('workspaceId');
+    fetch(req, server) {
+      const url = new URL(req.url);
 
-      if (!workspaceId) {
-        console.error('[Server] Missing workspaceId parameter');
-        ws.send(JSON.stringify({ error: { message: 'Missing workspaceId', code: 'NoPermissions' } }));
-        ws.close();
-        return;
+      // Extensions static files
+      if (url.pathname.startsWith('/extensions/')) {
+        return serveExtensions(req, url.pathname);
       }
 
-      const workspace = registry.get(workspaceId);
-      if (!workspace) {
-        console.error(`[Server] Unknown workspaceId: ${workspaceId}`);
-        ws.send(JSON.stringify({ error: { message: `Unknown workspace: ${workspaceId}`, code: 'NoPermissions' } }));
-        ws.close();
-        return;
+      // WebSocket upgrade - pass URL in data
+      if (url.pathname === '/' && server.upgrade(req, { data: { url: req.url } })) {
+        return; // Upgraded to WebSocket
       }
 
-      const ctx: ConnectionContext = {
-        workspaceId,
-        workspace,
-        openFiles: new Map(),
-        nextFd: 1,
-        watchers: new Map(),
-        send: (data) => ws.send(JSON.stringify(data))
-      };
-
-      connections.set(ws, ctx);
-      console.log(`[Server] Client connected to workspace: ${workspaceId} (${workspace.rootPath})`);
+      // Health check endpoint
+      return new Response('SideX Cloud IDE Server - WebSocket endpoint available');
     },
 
-    async message(ws, message) {
-      const ctx = connections.get(ws);
-      if (!ctx) return;
+    websocket: {
+      open(ws) {
+        const url = new URL(ws.data.url || '/', `http://${host}`);
+        const workspaceId = url.searchParams.get('workspaceId');
 
-      try {
-        const msg: RequestMessage = JSON.parse(message.toString());
-        console.log(`[Server] ${msg.method}(${msg.args.map(a => typeof a === 'string' ? a : JSON.stringify(a).slice(0, 50)).join(', ')})`);
-        const response = await handleRequest(ctx, msg);
-        ws.send(JSON.stringify(response));
-      } catch (err: any) {
-        console.error('[Server] Error processing message:', err);
-      }
+        if (!workspaceId) {
+          console.error('[Server] Missing workspaceId parameter');
+          ws.send(JSON.stringify({ error: { message: 'Missing workspaceId', code: 'NoPermissions' } }));
+          ws.close();
+          return;
+        }
+
+        const workspace = registry.get(workspaceId);
+        if (!workspace) {
+          console.error(`[Server] Unknown workspaceId: ${workspaceId}`);
+          ws.send(JSON.stringify({ error: { message: `Unknown workspace: ${workspaceId}`, code: 'NoPermissions' } }));
+          ws.close();
+          return;
+        }
+
+        const ctx: ConnectionContext = {
+          workspaceId,
+          workspace,
+          openFiles: new Map(),
+          nextFd: 1,
+          watchers: new Map(),
+          send: (data) => ws.send(JSON.stringify(data)),
+        };
+
+        connections.set(ws, ctx);
+        console.log(`[Server] Client connected to workspace: ${workspaceId} (${workspace.rootPath})`);
+      },
+
+      async message(ws, message) {
+        const ctx = connections.get(ws);
+        if (!ctx) return;
+
+        try {
+          const msg: RequestMessage = JSON.parse(message.toString());
+          console.log(
+            `[Server] ${msg.method}(${msg.args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a).slice(0, 50))).join(', ')})`,
+          );
+          const response = await handleRequest(ctx, msg);
+          ws.send(JSON.stringify(response));
+        } catch (err: any) {
+          console.error('[Server] Error processing message:', err);
+        }
+      },
+
+      close(ws) {
+        const ctx = connections.get(ws);
+        if (!ctx) return;
+
+        console.log(`[Server] Client disconnected from workspace: ${ctx.workspaceId}`);
+        connections.delete(ws);
+
+        // Close any open files
+        for (const [, openFile] of ctx.openFiles) {
+          openFile.handle.close().catch(() => {});
+        }
+
+        // Close any watchers
+        for (const [, watcher] of ctx.watchers) {
+          watcher.watcher.close();
+        }
+      },
+
+      perMessageDeflate: false,
     },
 
-    close(ws) {
-      const ctx = connections.get(ws);
-      if (!ctx) return;
+    error(error) {
+      console.error('[Server] Error:', error);
+      return new Response('Server Error', { status: 500 });
+    },
+  });
+}
 
-      console.log(`[Server] Client disconnected from workspace: ${ctx.workspaceId}`);
-      connections.delete(ws);
+// Start server if run directly
+if (import.meta.main) {
+  const server = createSideXServer(DEFAULT_PORT, DEFAULT_HOST);
 
-      // Close any open files
+  console.log(`[Server] SideX Cloud IDE Server running at http://${DEFAULT_HOST}:${DEFAULT_PORT}`);
+  console.log(`[Server] WebSocket endpoint: ws://${DEFAULT_HOST}:${DEFAULT_PORT}?workspaceId=<workspace-id>`);
+  console.log(
+    `[Server] Available workspaces: ${registry
+      .getAll()
+      .map((w) => w.workspaceId)
+      .join(', ')}`,
+  );
+
+  // Graceful shutdown
+  process.on('SIGINT', () => {
+    console.log('\n[Server] Shutting down...');
+    for (const [ws, ctx] of connections) {
+      ws.close();
       for (const [, openFile] of ctx.openFiles) {
         openFile.handle.close().catch(() => {});
       }
-
-      // Close any watchers
       for (const [, watcher] of ctx.watchers) {
         watcher.watcher.close();
       }
-    },
-
-    // Pass the request URL to the websocket handler
-    perMessageDeflate: false,
-  },
-
-  error(error) {
-    console.error('[Server] Error:', error);
-    return new Response('Server Error', { status: 500 });
-  },
-});
-
-console.log(`[Server] SideX Cloud IDE Server running at http://${HOST}:${PORT}`);
-console.log(`[Server] WebSocket endpoint: ws://${HOST}:${PORT}?workspaceId=<workspace-id>`);
-console.log(`[Server] Available workspaces: ${registry.getAll().map(w => w.workspaceId).join(', ')}`);
-
-// Graceful shutdown
-process.on('SIGINT', () => {
-  console.log('\n[Server] Shutting down...');
-  for (const [ws, ctx] of connections) {
-    ws.close();
-    for (const [, openFile] of ctx.openFiles) {
-      openFile.handle.close().catch(() => {});
     }
-    for (const [, watcher] of ctx.watchers) {
-      watcher.watcher.close();
-    }
-  }
-  server.stop();
-  process.exit(0);
-});
+    server.stop();
+    process.exit(0);
+  });
+}

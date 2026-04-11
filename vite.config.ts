@@ -1,12 +1,27 @@
 import { defineConfig } from 'vite';
 import * as path from 'path';
+import fs from 'fs';
 import { nlsPlugin } from './scripts/vite-plugin-nls';
 
 export default defineConfig({
   clearScreen: false,
   assetsInclude: ['**/*.wasm', '**/*.json', '**/*.tmLanguage.json'],
   publicDir: 'public',
-  plugins: [nlsPlugin()],
+  plugins: [
+    nlsPlugin(),
+    {
+      name: 'html-transform',
+      transformIndexHtml: () => [
+        {
+          tag: 'script',
+          attrs: {
+            id: 'vscode-workbench-builtin-extensions',
+          },
+          children: JSON.stringify(generateExtensionDescriptors()),
+        },
+      ],
+    },
+  ],
   server: {
     port: 1420,
     strictPort: true,
@@ -17,7 +32,7 @@ export default defineConfig({
   envPrefix: ['VITE_', 'TAURI_'],
   resolve: {
     alias: {
-      'vs': path.resolve(__dirname, 'src/vs'),
+      vs: path.resolve(__dirname, 'src/vs'),
     },
   },
   build: {
@@ -28,7 +43,10 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: path.resolve(__dirname, 'index.html'),
-        textMateWorker: path.resolve(__dirname, 'src/vs/workbench/services/textMate/browser/backgroundTokenization/worker/textMateTokenizationWorker.workerMain.ts'),
+        textMateWorker: path.resolve(
+          __dirname,
+          'src/vs/workbench/services/textMate/browser/backgroundTokenization/worker/textMateTokenizationWorker.workerMain.ts',
+        ),
         editorWorker: path.resolve(__dirname, 'src/vs/editor/common/services/editorWebWorkerMain.ts'),
         extensionHostWorker: path.resolve(__dirname, 'src/vs/workbench/api/worker/extensionHostWorkerMain.ts'),
       },
@@ -70,3 +88,59 @@ export default defineConfig({
     },
   },
 });
+
+// Escape HTML special characters
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Extensions directory
+const extensionsDir = path.join(import.meta.dirname, 'extensions');
+
+// Generate extension descriptors (same logic as generate-extension-meta.js)
+function generateExtensionDescriptors(): { extensionPath: string; packageJSON: any; packageNLS?: any }[] {
+  if (!fs.existsSync(extensionsDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(extensionsDir);
+  const descriptors = [];
+
+  for (const dirName of entries) {
+    const dirPath = path.join(extensionsDir, dirName);
+    if (!fs.statSync(dirPath).isDirectory()) continue;
+
+    const pkgPath = path.join(dirPath, 'package.json');
+    if (!fs.existsSync(pkgPath)) continue;
+
+    let packageJSON;
+    try {
+      packageJSON = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    } catch (err) {
+      console.warn(`Skipping ${dirName}: failed to parse package.json`);
+      continue;
+    }
+
+    let packageNLS = undefined;
+    const nlsPath = path.join(dirPath, 'package.nls.json');
+    if (fs.existsSync(nlsPath)) {
+      try {
+        packageNLS = JSON.parse(fs.readFileSync(nlsPath, 'utf-8'));
+      } catch {
+        // nls is optional
+      }
+    }
+
+    const descriptor: any = { extensionPath: dirName, packageJSON };
+    if (packageNLS) descriptor.packageNLS = packageNLS;
+    descriptors.push(descriptor);
+  }
+
+  descriptors.sort((a, b) => a.extensionPath.localeCompare(b.extensionPath));
+  return descriptors;
+}

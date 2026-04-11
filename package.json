@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
+    "dev:all": "bun scripts/dev.ts",
     "build": "bunx --bun vite build",
     "preview": "vite preview",
     "tauri": "tauri",
